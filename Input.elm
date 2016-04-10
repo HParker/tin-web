@@ -56,6 +56,7 @@ update action model =
     NoOp -> (model, Effects.none)
 
 
+-- TODO: move to card
 decodeCard : Json.Decoder Card
 decodeCard =
   Json.object2 (\title body -> Card title body)
