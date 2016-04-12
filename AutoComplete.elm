@@ -13,6 +13,8 @@ type Action
   = StoreCompletions (Maybe (List Completion))
   | ArrowPress { x : Int, y : Int }
   | Complete String
+  | ShowCompletion Bool
+
 
 type alias Completion =
   { command : String
@@ -21,12 +23,13 @@ type alias Completion =
 
 type alias Model =
   { selection : Int
+  , visible : Bool
   , completions : List Completion
   }
 
 init : Model
 init =
-  Model 0 []
+  Model 0 False []
 
 show : Signal.Address Action -> Completion -> Html
 show address completion =
@@ -48,7 +51,10 @@ view address command model =
   let
     visible = List.filter (completionMatch command) model.completions
   in
-    ul [class "completions"] (List.map (show address) visible)
+    if model.visible then
+      ul [class "completions"] (List.map (show address) visible)
+    else
+      ul [] []
 
 
 backupCompletions : List Completion
@@ -64,7 +70,9 @@ update action model =
   case action of
     StoreCompletions newCompletions ->
       let
-        newModel = Model 0 (Maybe.withDefault backupCompletions newCompletions)
+        newModel = { model |
+                       completions = (Maybe.withDefault backupCompletions newCompletions)
+                   }
       in
         (newModel, Effects.none)
     ArrowPress key ->
@@ -73,6 +81,8 @@ update action model =
       in
         (newModel, Effects.none)
     Complete s -> (model, Effects.none)
+    ShowCompletion state ->
+      ({ model | visible = state}, Effects.none)
 
 
 decodeCompletion : Json.Decoder (List Completion)

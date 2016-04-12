@@ -7,7 +7,7 @@ import Json.Decode as Json exposing ((:=))
 import Signal exposing (Address)
 import Html exposing (Html, input, ul, li, text, div)
 import Html.Attributes exposing (placeholder, value, autofocus, id, class)
-import Html.Events exposing (on, targetValue, keyCode, onKeyPress)
+import Html.Events exposing (on, targetValue, keyCode, onKeyPress, onFocus)
 import AutoComplete
 
 type alias Model =
@@ -76,10 +76,10 @@ view : Address Action -> Model -> Html
 view address model =
   div [id "app"]
     [ input
-        [ placeholder "Hey there!"
+        [ placeholder "Hello"
         , value model.command
-        , autofocus True
         , id "interface"
+        , onFocus address (AutoComplete (AutoComplete.ShowCompletion True))
         , onKeyPress  address handleKeyPress
         , on "input" targetValue (\val -> Signal.message address (StoreVal val))
         ]
