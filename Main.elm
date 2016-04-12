@@ -70,7 +70,7 @@ keyboardInputs =
 
 app : StartApp.App Model
 app =
-  StartApp.start { init = init, view = view, update = update, inputs = [] }
+  StartApp.start { init = init, view = view, update = update, inputs = [keyboardInputs] }
 
 
 port tasks : Signal (Task.Task Never ())

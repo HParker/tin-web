@@ -31,11 +31,17 @@ init : Model
 init =
   Model 0 False []
 
-show : Signal.Address Action -> Completion -> Html
-show address completion =
+show : Signal.Address Action -> Int -> Int -> Completion -> Html
+show address selected current completion =
+  let
+    completionClass = if selected == current then
+                "selected-completion completion"
+              else
+                "completion"
+  in
   li
     [ Html.Events.onClick address (Complete completion.command)
-    , class "completion"
+    , class completionClass
     ]
     [ b [class "command"] [text completion.command]
     , i [class "info"] [text completion.info]
@@ -52,7 +58,8 @@ view address command model =
     visible = List.filter (completionMatch command) model.completions
   in
     if model.visible then
-      ul [class "completions"] (List.map (show address) visible)
+      ul [class "completions"]
+           (List.indexedMap (show address model.selection) visible)
     else
       ul [] []
 
@@ -63,7 +70,16 @@ backupCompletions = []
 
 moveSelection : { x : Int, y : Int } -> Model -> Model
 moveSelection key model =
-  { model | selection = model.selection + key.y }
+  let
+    potentialSelection =
+      model.selection - key.y
+    newSelection =
+      if potentialSelection >= 0 && potentialSelection < (List.length model.completions) then
+        potentialSelection
+      else
+        model.selection
+  in
+    { model | selection = newSelection }
 
 update : Action -> Model -> (Model, Effects Action)
 update action model =
