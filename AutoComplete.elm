@@ -9,6 +9,7 @@ import Json.Decode as Json exposing ((:=))
 import Http
 import Task
 
+
 type Action
   = StoreCompletions (Maybe (List Completion))
   | ArrowPress { x : Int, y : Int }
@@ -68,7 +69,11 @@ backupCompletions : List Completion
 backupCompletions = []
 
 
-moveSelection : { x : Int, y : Int } -> Model -> Model
+getAt : List a -> Int -> Maybe a
+getAt xs idx = List.head <| List.drop idx xs
+
+
+moveSelection : { x : Int, y : Int } -> Model -> (Model, Effects Action)
 moveSelection key model =
   let
     potentialSelection =
@@ -78,8 +83,15 @@ moveSelection key model =
         potentialSelection
       else
         model.selection
+    fx =
+      if key.x > 0 then
+        case getAt model.completions model.selection of
+          Just completion -> Effects.task <| Task.succeed <| Complete completion.command
+          Nothing -> Effects.none
+      else
+        Effects.none
   in
-    { model | selection = newSelection }
+    ({ model | selection = newSelection }, fx)
 
 update : Action -> Model -> (Model, Effects Action)
 update action model =
@@ -92,10 +104,7 @@ update action model =
       in
         (newModel, Effects.none)
     ArrowPress key ->
-      let
-        newModel = moveSelection key model
-      in
-        (newModel, Effects.none)
+      moveSelection key model
     Complete s -> (model, Effects.none)
     ShowCompletion state ->
       ({ model | visible = state}, Effects.none)
