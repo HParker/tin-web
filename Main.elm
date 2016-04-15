@@ -11,7 +11,7 @@ import AutoComplete
 
 type alias Model =
   { input : Input.Model
-  , cards : List Card.Model
+  , cards : Card.Model
   }
 
 type Action
@@ -33,28 +33,30 @@ update action model =
   case action of
     Input msg ->
       case msg of
-        Input.Add card ->
+        Input.Request command ->
           let
-            input = model.input
-            cards = case card of
-                      Just c -> c :: model.cards
-                      Nothing -> model.cards
+            (cards, fx) = Card.update (Card.Get command) model.cards
           in
-            (Model input cards, Effects.none)
+            (Model model.input cards, Effects.map Card fx)
         _ ->
           let
             (input, fx) = Input.update msg model.input
-            cards = model.cards
           in
-            (Model input cards, Effects.map Input fx)
-    _ -> (model, Effects.none)
+            (Model input model.cards, Effects.map Input fx)
+    Card msg ->
+      case msg of
+        _ ->
+          let
+            (cards, fx) = Card.update msg model.cards
+          in
+            (Model model.input cards, Effects.map Card fx)
 
 
 view : Signal.Address Action -> Model -> Html
 view address model =
   div [class "center"]
       [ Input.view (Signal.forwardTo address Input) model.input
-      , div [] (List.map (Card.view (Signal.forwardTo address Card)) model.cards)
+      , Card.view (Signal.forwardTo address Card) model.cards
       ]
 
 
