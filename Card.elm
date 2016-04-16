@@ -7,7 +7,7 @@ import Json.Decode as Json exposing ((:=))
 import Http
 import Task
 import Effects exposing (Effects)
-
+import Markdown
 
 type alias Card =
   { title : String
@@ -27,8 +27,8 @@ type Action
 show : Signal.Address Action -> Card -> Html
 show address card =
   div [class "card"]
-    [ Html.h1 [class "title"] [text card.title]
-    , Html.p [class "body"] [text card.body]
+    [ Html.h3 [class "title"] [text card.title]
+    , Markdown.toHtml card.body
     ]
 
 view : Address Action -> Model -> Html

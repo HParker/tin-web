@@ -35,21 +35,23 @@ update action model =
       case msg of
         Input.Request command ->
           let
+            input = model.input
+            newInput = { input | command = "" }
             (cards, fx) = Card.update (Card.Get command) model.cards
           in
-            (Model model.input cards, Effects.map Card fx)
+            ({ model | input = newInput, cards = cards}, Effects.map Card fx)
         _ ->
           let
             (input, fx) = Input.update msg model.input
           in
-            (Model input model.cards, Effects.map Input fx)
+            ({ model | input = input}, Effects.map Input fx)
     Card msg ->
       case msg of
         _ ->
           let
             (cards, fx) = Card.update msg model.cards
           in
-            (Model model.input cards, Effects.map Card fx)
+            ({ model | cards = cards}, Effects.map Card fx)
 
 
 view : Signal.Address Action -> Model -> Html
