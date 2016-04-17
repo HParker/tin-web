@@ -25,7 +25,7 @@ init =
     (input, fx) = Input.init
     cards = []
   in
-    (Model input cards, Effects.map Input fx)
+    (Model input Card.init, Effects.map Input fx)
 
 
 update : Action -> Model -> (Model, Effects Action)

@@ -8,36 +8,66 @@ import Http
 import Task
 import Effects exposing (Effects)
 import Markdown
+import Html.Events
+
 
 type alias Card =
   { title : String
   , body : String
+  , collapsed : Bool
   }
 
+type alias ID = Int
 
 type alias Model =
-  List Card
+  { cards : List (ID, Card)
+  , nextID : ID
+  }
+
 
 
 type Action
   = NoOp
   | Get String
   | Add (Maybe Card)
+  | Collapse ID
 
-show : Signal.Address Action -> Card -> Html
-show address card =
+
+initCard : String -> String -> Card
+initCard title body =
+  Card title body False
+
+
+init : Model
+init = Model [] 0
+
+show : Signal.Address Action -> (ID, Card) -> Html
+show address cardTuple =
+  let
+    cardID = fst cardTuple
+    card = snd cardTuple
+    cardBody = if card.collapsed then
+                 ""
+               else
+                 card.body
+  in
   div [class "card"]
     [ span [class "title"] [text card.title]
-    , span [class "icon octicon octicon-pin"] []
-    , span [class "icon octicon octicon-chevron-up"] []
-    , Markdown.toHtml card.body
+    , span
+        [ class "icon octicon octicon-pin"
+
+        ] []
+    , span [ class "icon octicon octicon-chevron-down"
+           , Html.Events.onClick address (Collapse cardID)
+           ] []
+    , Markdown.toHtml cardBody
     ]
 
 view : Address Action -> Model -> Html
 view address model =
   div
     []
-    (List.map (show address) model)
+    (List.map (show address) model.cards)
 
 
 update : Action -> Model -> (Model, Effects Action)
@@ -47,11 +77,25 @@ update action model =
       (model, getCard command)
     Add card ->
       let
-        newModel = case card of
-                  Just c -> c :: model
-                  Nothing -> model
+        newCards = case card of
+                  Just c -> (model.nextID, c) :: model.cards
+                  Nothing -> model.cards
       in
-        (newModel, Effects.none)
+        ({model |
+            cards = newCards,
+            nextID = model.nextID + 1
+         },
+           Effects.none
+        )
+    Collapse id ->
+      let
+        updateCard (cardID, card) =
+          if id == cardID then
+            (cardID, { card | collapsed = True })
+          else
+            (cardID, card)
+      in
+        ({ model | cards = List.map updateCard model.cards }, Effects.none)
     NoOp ->
       (model, Effects.none)
 
@@ -64,6 +108,6 @@ getCard command =
 
 decodeCard : Json.Decoder Card
 decodeCard =
-  Json.object2 (\title body -> Card title body)
+  Json.object2 (\title body -> initCard title body)
     ("title" := Json.string)
     ("body" := Json.string)
