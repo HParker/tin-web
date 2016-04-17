@@ -1,6 +1,6 @@
 module Card where
 
-import Html exposing (Html, Attribute, text, toElement, div, input)
+import Html exposing (Html, Attribute, text, toElement, div, input, span)
 import Html.Attributes exposing (id, class)
 import Signal exposing (Address)
 import Json.Decode as Json exposing ((:=))
@@ -27,7 +27,9 @@ type Action
 show : Signal.Address Action -> Card -> Html
 show address card =
   div [class "card"]
-    [ Html.h3 [class "title"] [text card.title]
+    [ span [class "title"] [text card.title]
+    , span [class "icon octicon octicon-pin"] []
+    , span [class "icon octicon octicon-chevron-up"] []
     , Markdown.toHtml card.body
     ]
 
