@@ -3,111 +3,70 @@ module Card where
 import Html exposing (Html, Attribute, text, toElement, div, input, span)
 import Html.Attributes exposing (id, class)
 import Signal exposing (Address)
-import Json.Decode as Json exposing ((:=))
-import Http
-import Task
-import Effects exposing (Effects)
 import Markdown
 import Html.Events
+import Effects exposing (Effects)
 
-
-type alias Card =
+type alias Model =
   { title : String
   , body : String
+  , id : ID
   , collapsed : Bool
   }
 
+
 type alias ID = Int
-
-type alias Model =
-  { cards : List (ID, Card)
-  , nextID : ID
-  }
-
 
 
 type Action
   = NoOp
-  | Get String
-  | Add (Maybe Card)
   | Collapse ID
 
 
-initCard : String -> String -> Card
-initCard title body =
-  Card title body False
-
-
-init : Model
-init = Model [] 0
-
-show : Signal.Address Action -> (ID, Card) -> Html
-show address cardTuple =
-  let
-    cardID = fst cardTuple
-    card = snd cardTuple
-    cardBody = if card.collapsed then
-                 ""
-               else
-                 card.body
-  in
-  div [class "card"]
-    [ span [class "title"] [text card.title]
-    , span
-        [ class "icon octicon octicon-pin"
-
-        ] []
-    , span [ class "icon octicon octicon-chevron-down"
-           , Html.Events.onClick address (Collapse cardID)
-           ] []
-    , Markdown.toHtml cardBody
-    ]
-
-view : Address Action -> Model -> Html
-view address model =
-  div
-    []
-    (List.map (show address) model.cards)
+build : String -> String -> ID -> Model
+build title body id =
+  Model title body id False
 
 
 update : Action -> Model -> (Model, Effects Action)
 update action model =
   case action of
-    Get command ->
-      (model, getCard command)
-    Add card ->
-      let
-        newCards = case card of
-                  Just c -> (model.nextID, c) :: model.cards
-                  Nothing -> model.cards
-      in
-        ({model |
-            cards = newCards,
-            nextID = model.nextID + 1
-         },
-           Effects.none
-        )
     Collapse id ->
       let
-        updateCard (cardID, card) =
-          if id == cardID then
-            (cardID, { card | collapsed = True })
+        toggle =
+          if model.collapsed then
+            False
           else
-            (cardID, card)
+            True
       in
-        ({ model | cards = List.map updateCard model.cards }, Effects.none)
+        if model.id == id then
+          ({ model | collapsed = toggle }, Effects.none)
+        else
+          (model, Effects.none)
     NoOp ->
       (model, Effects.none)
 
-getCard : String -> Effects Action
-getCard command =
-  Http.get decodeCard ("?q=" ++ command)
-    |> Task.toMaybe
-    |> Task.map Add
-    |> Effects.task
 
-decodeCard : Json.Decoder Card
-decodeCard =
-  Json.object2 (\title body -> initCard title body)
-    ("title" := Json.string)
-    ("body" := Json.string)
+view : Signal.Address Action -> Model -> Html
+view address card =
+  let
+    (cardBody, collapseIcon) =
+      if card.collapsed then
+        ("", "icon octicon octicon-chevron-up")
+      else
+        (card.body, "icon octicon octicon-chevron-down")
+  in
+    div
+      [class "card"]
+        [span [class "title"] [text card.title]
+        , span
+           [ class "icon octicon octicon-pin"
+           ]
+           []
+        , span
+           [ class collapseIcon
+           , Html.Events.onClick address (Collapse card.id)
+           ]
+           []
+        , Markdown.toHtml cardBody
+        ]
