@@ -7,6 +7,7 @@ import Markdown
 import Html.Events
 import Effects exposing (Effects)
 
+
 type alias Model =
   { title : String
   , body : String
@@ -21,11 +22,17 @@ type alias ID = Int
 type Action
   = NoOp
   | Collapse ID
+  | Move ID
 
 
 build : String -> String -> ID -> Model
 build title body id =
   Model title body id False
+
+
+collapse : Model -> Model
+collapse model =
+  { model | collapsed = True}
 
 
 update : Action -> Model -> (Model, Effects Action)
@@ -43,6 +50,8 @@ update action model =
           ({ model | collapsed = toggle }, Effects.none)
         else
           (model, Effects.none)
+    Move id ->
+      (model, Effects.none)
     NoOp ->
       (model, Effects.none)
 
@@ -58,9 +67,10 @@ view address card =
   in
     div
       [class "card"]
-        [span [class "title"] [text card.title]
+        [ span [class "title"] [text card.title]
         , span
            [ class "icon octicon octicon-pin"
+           , Html.Events.onClick address (Move card.id)
            ]
            []
         , span

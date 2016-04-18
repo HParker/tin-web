@@ -14,20 +14,20 @@ import Input
 type alias Model =
   { input : Input.Model
   , cards : Cards.Model
+  , pins : Cards.Model
   }
 
 type Action
   = Input Input.Action
   | Cards Cards.Action
-
+  | Pins Cards.Action
 
 init : (Model, Effects Action)
 init =
   let
     (input, fx) = Input.init
-    cards = []
   in
-    (Model input Cards.init, Effects.map Input fx)
+    (Model input Cards.init Cards.init, Effects.map Input fx)
 
 
 update : Action -> Model -> (Model, Effects Action)
@@ -47,22 +47,37 @@ update action model =
             (input, fx) = Input.update msg model.input
           in
             ({ model | input = input}, Effects.map Input fx)
-    Cards msg ->
-      case msg of
+    Cards act ->
+      case act of
+        Cards.Move newCards ->
+          ({ model | pins = Cards.addCards newCards model.pins }, Effects.none)
         _ ->
           let
-            (cards, fx) = Cards.update msg model.cards
+            (cards, fx) = Cards.update act model.cards
           in
             ({ model | cards = cards}, Effects.map Cards fx)
+    Pins act ->
+      case act of
+        Cards.Move newCards ->
+          ({ model | cards = Cards.addCards newCards model.cards }, Effects.none)
+        _ ->
+          let
+            (cards, fx) = Cards.update act model.pins
+          in
+            ({ model | pins = cards}, Effects.map Pins fx)
+
 
 
 view : Signal.Address Action -> Model -> Html
 view address model =
-  div [class "center"]
-      [ Input.view (Signal.forwardTo address Input) model.input
-      , Cards.view (Signal.forwardTo address Cards) model.cards
-      ]
-
+  div
+    [class "center"]
+    [ Input.view (Signal.forwardTo address Input) model.input
+    , div
+        [class "pins"]
+        [Cards.view (Signal.forwardTo address Pins) model.pins]
+    , Cards.view (Signal.forwardTo address Cards) model.cards
+    ]
 
 arrowPressAutoCompleteInput : { x : Int, y : Int } -> Action
 arrowPressAutoCompleteInput =

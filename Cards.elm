@@ -23,6 +23,7 @@ type Action
   | Get String
   | Add (Maybe (Card.ID -> Card.Model))
   | Card Card.Action
+  | Move (List Card.Model)
 
 
 init : Model
@@ -36,6 +37,10 @@ view address model =
     (List.map (Card.view (Signal.forwardTo address Card)) model.cards)
 
 
+addCards : List Card.Model -> Model -> Model
+addCards newCards model =
+  { model | cards = model.cards ++ newCards }
+
 update : Action -> Model -> (Model, Effects Action)
 update action model =
   case action of
@@ -43,21 +48,36 @@ update action model =
       (model, getCard command)
     Add card ->
       let
-        newCards = case card of
-                  Just c -> (c model.nextID) :: model.cards
-                  Nothing -> model.cards
+        newCards =
+          case card of
+            Just c -> (c model.nextID) :: model.cards
+            Nothing -> model.cards
       in
-        ({model |
+        ( {model |
             cards = newCards,
             nextID = model.nextID + 1
-         },
-           Effects.none
+          }
+        , Effects.none
         )
-    Card act -> -- TODO: forward events to correct card
-      let
-        (cards, fxs) = List.unzip (List.map (Card.update act) model.cards)
-      in
-      ({model | cards = cards}, (Effects.map Card (Effects.batch fxs)))
+    Card act ->
+      case act of
+        Card.Move cardID ->
+          let
+            newCards =
+              List.filter (\c -> c.id /= cardID) model.cards
+            movingCards =
+              List.map Card.collapse (List.filter (\c -> c.id == cardID) model.cards)
+            fx =
+              Effects.task <| Task.succeed <| Move movingCards
+          in
+            ({model | cards = newCards}, fx)
+        _ ->
+          let
+            (newCards, fxs) = List.unzip (List.map (Card.update act) model.cards)
+          in
+            ({model | cards = newCards}, (Effects.map Card (Effects.batch fxs)))
+    Move _ ->
+      (model, Effects.none)
     NoOp ->
       (model, Effects.none)
 
