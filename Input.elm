@@ -27,11 +27,25 @@ init =
   (Model "" AutoComplete.init, Effects.map AutoComplete (AutoComplete.fetch "default"))
 
 
+storeCommand : String -> Model -> Model
+storeCommand command model =
+  let
+    completions = model.completions
+    newCompletions =
+      { completions | command = command}
+  in
+    { model |
+        command = command,
+        completions = newCompletions
+    }
+
 update : Action -> Model -> (Model, Effects Action)
 update action model =
   case action of
-    StoreVal s -> ({model | command = s}, Effects.none)
-    Completions s -> (model, Effects.map AutoComplete (AutoComplete.fetch "default"))
+    StoreVal s ->
+      (storeCommand s model, Effects.none)
+    Completions s ->
+      (model, Effects.map AutoComplete (AutoComplete.fetch "default"))
     AutoComplete act ->
       case act of
         AutoComplete.Complete completion ->
@@ -62,7 +76,7 @@ view address model =
         , on "input" targetValue (\val -> Signal.message address (StoreVal val))
         ]
         []
-    , AutoComplete.view (Signal.forwardTo address AutoComplete) model.command model.completions
+    , AutoComplete.view (Signal.forwardTo address AutoComplete) model.completions
     ]
 
 

@@ -26,11 +26,12 @@ type alias Model =
   { selection : Int
   , visible : Bool
   , completions : List Completion
+  , command : String
   }
 
 init : Model
 init =
-  Model 0 False []
+  Model 0 False [] ""
 
 show : Signal.Address Action -> Int -> Int -> Completion -> Html
 show address selected current completion =
@@ -59,16 +60,17 @@ completionMatch command completion =
         Nothing ->
           ""
   in
-  (String.startsWith keyword) completion.command
+    (String.startsWith keyword) completion.command
 
-view : Signal.Address Action -> String -> Model -> Html
-view address command model =
+view : Signal.Address Action -> Model -> Html
+view address model =
   let
-    visible = List.filter (completionMatch command) model.completions
+    visible = List.filter (completionMatch model.command) model.completions
   in
     if model.visible then
-      ul [class "completions"]
-           (List.indexedMap (show address model.selection) visible)
+      ul
+        [class "completions"]
+        (List.indexedMap (show address model.selection) visible)
     else
       ul [] []
 
@@ -84,15 +86,17 @@ getAt xs idx = List.head <| List.drop idx xs
 moveSelection : { x : Int, y : Int } -> Model -> (Model, Effects Action)
 moveSelection key model =
   let
+    visibleCompletions =
+      List.filter (completionMatch model.command) model.completions
     potentialSelection =
       model.selection - key.y
     newSelection =
-      if potentialSelection >= 0 && potentialSelection < (List.length model.completions) then
+      if potentialSelection >= 0 && potentialSelection < (List.length visibleCompletions) then
         potentialSelection
       else
         model.selection
     fx =
-      case getAt model.completions model.selection of
+      case getAt visibleCompletions model.selection of
         Just completion -> Effects.task <| Task.succeed <| Complete completion.command
         Nothing -> Effects.none
   in
