@@ -51,7 +51,15 @@ show address selected current completion =
 
 completionMatch : String -> Completion -> Bool
 completionMatch command completion =
-  (String.startsWith (String.toLower command)) completion.command
+  let
+    keyword =
+      case (List.head (String.split " " command)) of
+        Just key ->
+          String.toLower <| key
+        Nothing ->
+          ""
+  in
+  (String.startsWith keyword) completion.command
 
 view : Signal.Address Action -> String -> Model -> Html
 view address command model =
@@ -84,12 +92,9 @@ moveSelection key model =
       else
         model.selection
     fx =
-      if key.x > 0 then
-        case getAt model.completions model.selection of
-          Just completion -> Effects.task <| Task.succeed <| Complete completion.command
-          Nothing -> Effects.none
-      else
-        Effects.none
+      case getAt model.completions model.selection of
+        Just completion -> Effects.task <| Task.succeed <| Complete completion.command
+        Nothing -> Effects.none
   in
     ({ model | selection = newSelection }, fx)
 
@@ -105,7 +110,8 @@ update action model =
         (newModel, Effects.none)
     ArrowPress key ->
       moveSelection key model
-    Complete s -> (model, Effects.none)
+    Complete s ->
+      (model, Effects.none)
     ShowCompletion state ->
       ({ model | visible = state}, Effects.none)
 
