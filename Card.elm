@@ -63,20 +63,20 @@ view address card =
   let
     (cardBody, collapseIcon) =
       if card.collapsed then
-        ("", "icon octicon octicon-chevron-up")
+        ("", "card-icon icon octicon octicon-chevron-up")
       else
-        (card.body, "icon octicon octicon-chevron-down")
+        (card.body, "card-icon icon octicon octicon-chevron-down")
   in
     div
       [class "card"]
         [ span [class "title"] [text card.title]
         , span
-            [ class "icon octicon octicon-x"
+            [ class "card-icon icon octicon octicon-x"
             , Html.Events.onClick address (Delete card.id)
             ]
             []
         , span
-           [ class "icon octicon octicon-pin"
+           [ class "card-icon icon octicon octicon-pin"
            , Html.Events.onClick address (Move card.id)
            ]
            []

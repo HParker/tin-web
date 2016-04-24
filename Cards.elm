@@ -29,6 +29,12 @@ type Action
 init : Model
 init = Model [] 0
 
+add : Card.Model -> Model -> Model
+add card model =
+  { model |
+      cards = card::model.cards,
+      nextID = model.nextID + 1
+  }
 
 view : Address Action -> Model -> Html
 view address model =
@@ -72,7 +78,7 @@ update action model =
             newCards =
               List.filter (\c -> c.id /= cardID) model.cards
             movingCards =
-              List.map Card.collapse (List.filter (\c -> c.id == cardID) model.cards)
+              List.filter (\c -> c.id == cardID) model.cards
             fx =
               Effects.task <| Task.succeed <| Move movingCards
           in

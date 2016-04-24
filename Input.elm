@@ -66,7 +66,7 @@ sendCard command =
 
 view : Address Action -> Model -> Html
 view address model =
-  div [id "app"]
+  div [id "main-interface"]
     [ input
         [ placeholder "Hello"
         , value model.command
