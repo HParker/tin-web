@@ -37,8 +37,7 @@ update action model =
       case msg of
         Input.Request command ->
           let
-            input = model.input
-            newInput = { input | command = "" }
+            newInput = Input.storeCommand "" model.input
             (cards, fx) = Cards.update (Cards.Get command) model.cards
           in
             ({ model | input = newInput, cards = cards}, Effects.map Cards fx)

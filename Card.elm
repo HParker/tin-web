@@ -23,7 +23,7 @@ type Action
   = NoOp
   | Collapse ID
   | Move ID
-
+  | Delete ID
 
 build : String -> String -> ID -> Model
 build title body id =
@@ -52,6 +52,8 @@ update action model =
           (model, Effects.none)
     Move id ->
       (model, Effects.none)
+    Delete _ ->
+      (model, Effects.none)
     NoOp ->
       (model, Effects.none)
 
@@ -68,6 +70,11 @@ view address card =
     div
       [class "card"]
         [ span [class "title"] [text card.title]
+        , span
+            [ class "icon octicon octicon-x"
+            , Html.Events.onClick address (Delete card.id)
+            ]
+            []
         , span
            [ class "icon octicon octicon-pin"
            , Html.Events.onClick address (Move card.id)

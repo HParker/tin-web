@@ -61,6 +61,12 @@ update action model =
         )
     Card act ->
       case act of
+        Card.Delete cardID ->
+          let
+            newCards =
+              List.filter (\c -> c.id /= cardID) model.cards
+          in
+            ({model | cards = newCards}, Effects.none)
         Card.Move cardID ->
           let
             newCards =
