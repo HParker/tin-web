@@ -41,7 +41,7 @@ update action model =
         Input.Request command ->
           let
             newInput = Input.storeCommand "" model.input
-            newHistories = Cards.add (Card.build "History" command model.histories.nextID) model.histories
+            newHistories = Cards.add (Card.build "" command model.histories.nextID) model.histories
             (cards, fx) = Cards.update (Cards.Get command) model.cards
           in
             ({ model |
