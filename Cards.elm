@@ -2,7 +2,6 @@ module Cards where
 
 import Html exposing (Html, Attribute, text, toElement, div, input, span)
 import Signal exposing (Address)
-import Json.Decode as Json exposing ((:=))
 import Http
 import Task
 import Effects exposing (Effects)
@@ -96,14 +95,7 @@ update action model =
 
 getCard : String -> Effects Action
 getCard command =
-  Http.get decodeCard ("?q=" ++ command)
+  Http.get Card.decode ("?q=" ++ command)
     |> Task.toMaybe
     |> Task.map Add
     |> Effects.task
-
-
-decodeCard : Json.Decoder (Card.ID -> Card.Model)
-decodeCard =
-  Json.object2 (\title body -> Card.build title body)
-    ("title" := Json.string)
-    ("body" := Json.string)

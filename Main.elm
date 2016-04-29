@@ -5,6 +5,7 @@ import Task
 import Html exposing (Html, Attribute, text, toElement, div, input, span)
 import Html.Attributes exposing (id, class)
 import Keyboard
+import Time exposing (second, Time)
 
 import AutoComplete
 import Cards
@@ -41,7 +42,7 @@ update action model =
         Input.Request command ->
           let
             newInput = Input.storeCommand "" model.input
-            newHistories = Cards.add (Card.build "" command model.histories.nextID) model.histories
+            newHistories = Cards.add (Card.build "" command 0 "" model.histories.nextID) model.histories
             (cards, fx) = Cards.update (Cards.Get command) model.cards
           in
             ({ model |
@@ -121,9 +122,25 @@ keyboardInputs =
   Signal.map arrowPressAutoCompleteInput Keyboard.arrows
 
 
+updateCard : Time -> Action
+updateCard =
+  Cards << Cards.Card << Card.Tick
+
+
+updatePin : Time -> Action
+updatePin =
+  Pins << Cards.Card << Card.Tick
+
+
+clock : Signal Action
+clock =
+  Signal.merge
+    (Signal.map updateCard (Time.every second))
+    (Signal.map updatePin (Time.every second))
+
 app : StartApp.App Model
 app =
-  StartApp.start { init = init, view = view, update = update, inputs = [keyboardInputs] }
+  StartApp.start { init = init, view = view, update = update, inputs = [keyboardInputs, clock] }
 
 
 port tasks : Signal (Task.Task Never ())
