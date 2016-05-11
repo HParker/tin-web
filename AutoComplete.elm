@@ -129,7 +129,7 @@ decodeCompletion =
 
 fetch : String -> Effects Action
 fetch package =
-  Http.get decodeCompletion ("/comp/?pack=" ++ package)
+  Http.get decodeCompletion ("/completion/?pack=" ++ package)
     |> Task.toMaybe
     |> Task.map StoreCompletions
     |> Effects.task

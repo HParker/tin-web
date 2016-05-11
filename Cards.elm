@@ -95,7 +95,7 @@ update action model =
 
 getCard : String -> Effects Action
 getCard command =
-  Http.get Card.decode ("?q=" ++ command)
+  Http.get Card.decode ("api/?q=" ++ command)
     |> Task.toMaybe
     |> Task.map Add
     |> Effects.task
