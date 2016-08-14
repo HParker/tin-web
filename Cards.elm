@@ -1,12 +1,10 @@
-module Cards where
+module Cards exposing (..)
 
-import Html exposing (Html, Attribute, text, toElement, div, input, span)
-import Signal exposing (Address)
+import Html exposing (Html, Attribute, text, div, input, span)
 import Http
 import Task
-import Effects exposing (Effects)
 import Card
-
+import Html.App
 
 type alias ID = Int
 
@@ -17,12 +15,14 @@ type alias Model =
   }
 
 
-type Action
+type Msg
   = NoOp
   | Get String
-  | Add (Maybe (Card.ID -> Card.Model))
-  | Card Card.Action
+  | Add (Card.ID -> Card.Model)
+  | AddFailed Http.Error
+  | Card Card.Msg
   | Move (List Card.Model)
+  | NoMove (List Card.Model)
 
 
 init : Model
@@ -35,18 +35,22 @@ add card model =
       nextID = model.nextID + 1
   }
 
-view : Address Action -> Model -> Html
-view address model =
+view : Model -> Html Msg
+view model =
   div
     []
-    (List.map (Card.view (Signal.forwardTo address Card)) model.cards)
+    (List.map viewCard model.cards)
+
+viewCard : Card.Model -> Html Msg
+viewCard card =
+  Html.App.map Card (Card.view card)
 
 
 addCards : List Card.Model -> Model -> Model
 addCards newCards model =
   { model | cards = model.cards ++ newCards }
 
-update : Action -> Model -> (Model, Effects Action)
+update : Msg -> Model -> (Model, Cmd Msg)
 update action model =
   case action of
     Get command ->
@@ -54,15 +58,13 @@ update action model =
     Add card ->
       let
         newCards =
-          case card of
-            Just c -> (c model.nextID) :: model.cards
-            Nothing -> model.cards
+          (card model.nextID) :: model.cards
       in
         ( {model |
             cards = newCards,
             nextID = model.nextID + 1
           }
-        , Effects.none
+        , Cmd.none
         )
     Card act ->
       case act of
@@ -71,31 +73,34 @@ update action model =
             newCards =
               List.filter (\c -> c.id /= cardID) model.cards
           in
-            ({model | cards = newCards}, Effects.none)
+            ({model | cards = newCards}, Cmd.none)
         Card.Move cardID ->
           let
             newCards =
               List.filter (\c -> c.id /= cardID) model.cards
             movingCards =
               List.filter (\c -> c.id == cardID) model.cards
-            fx =
-              Effects.task <| Task.succeed <| Move movingCards
           in
-            ({model | cards = newCards}, fx)
+            ({model | cards = newCards}, moveCard movingCards)
         _ ->
           let
             (newCards, fxs) = List.unzip (List.map (Card.update act) model.cards)
           in
-            ({model | cards = newCards}, (Effects.map Card (Effects.batch fxs)))
+            ({model | cards = newCards}, (Cmd.map Card (Cmd.batch fxs)))
+    NoMove _ ->
+      (model, Cmd.none)
     Move _ ->
-      (model, Effects.none)
+      (model, Cmd.none)
+    AddFailed _ ->
+      (model, Cmd.none)
     NoOp ->
-      (model, Effects.none)
+      (model, Cmd.none)
 
+moveCard : (List Card.Model) -> Cmd Msg
+moveCard cards =
+  Task.perform NoMove Move (Task.succeed cards)
 
-getCard : String -> Effects Action
+getCard : String -> Cmd Msg
 getCard command =
   Http.get Card.decode ("api/?q=" ++ command)
-    |> Task.toMaybe
-    |> Task.map Add
-    |> Effects.task
+    |> Task.perform AddFailed Add

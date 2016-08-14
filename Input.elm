@@ -1,11 +1,9 @@
-module Input where
+module Input exposing (..)
 
-import Effects exposing (Effects, Never)
-import Task
-import Signal exposing (Address)
-import Html exposing (Html, input, ul, li, text, div)
+import Html exposing (Html, input, ul, li, text, div, button)
+import Html.App
 import Html.Attributes exposing (placeholder, value, autofocus, id, class)
-import Html.Events exposing (on, targetValue, keyCode, onKeyPress, onFocus)
+import Html.Events exposing (on, targetValue, keyCode, onFocus, onBlur, onInput, onClick, onSubmit)
 import AutoComplete
 
 type alias Model =
@@ -14,17 +12,15 @@ type alias Model =
   }
 
 
-type Action
+type Msg
   = NoOp
-  | Request String
   | Completions String
-  | AutoComplete AutoComplete.Action
+  | AutoComplete AutoComplete.Msg
   | StoreVal String
 
-
-init : (Model, Effects Action)
+init : (Model, Cmd Msg)
 init =
-  (Model "" AutoComplete.init, Effects.map AutoComplete (AutoComplete.fetch "default"))
+  (Model "" AutoComplete.init, Cmd.map AutoComplete (AutoComplete.fetch "default"))
 
 
 storeCommand : String -> Model -> Model
@@ -39,47 +35,41 @@ storeCommand command model =
         completions = newCompletions
     }
 
-update : Action -> Model -> (Model, Effects Action)
+update : Msg -> Model -> (Model, Cmd Msg)
 update action model =
   case action of
     StoreVal s ->
-      (storeCommand s model, Effects.none)
+      (storeCommand s model, Cmd.none)
     Completions s ->
-      (model, Effects.map AutoComplete (AutoComplete.fetch "default"))
+      (model, Cmd.map AutoComplete (AutoComplete.fetch "default"))
     AutoComplete act ->
       case act of
         AutoComplete.Complete completion ->
-          ({ model | command = completion }, Effects.none)
+          ({ model | command = completion }, Cmd.none)
         _ ->
           let
             (completionsModel, fx) = AutoComplete.update act model.completions
           in
-            ({ model | completions = completionsModel}, Effects.map AutoComplete fx)
-    Request _ -> (model, Effects.none) -- Handled in Main
-    NoOp -> (model, Effects.none)
+            ({ model | completions = completionsModel}, Cmd.map AutoComplete fx)
+    NoOp -> (model, Cmd.none)
 
 
-sendCard : String -> Effects Action
+sendCard : String -> Cmd Msg
 sendCard command =
-  Effects.task <| Task.succeed <| Request command
+  Cmd.none
 
 
-view : Address Action -> Model -> Html
-view address model =
-  div [id "main-interface"]
+view : Model -> Html Msg
+view model =
+  div [ id "main-interface" ]
     [ input
-        [ placeholder "Hello"
+        [ placeholder "Hello Friend"
         , value model.command
         , id "interface"
-        , onFocus address (AutoComplete (AutoComplete.ShowCompletion True))
-        , onKeyPress  address (handleKeyPress model)
-        , on "input" targetValue (\val -> Signal.message address (StoreVal val))
+        , onFocus (AutoComplete (AutoComplete.ShowCompletion True))
+        , onBlur (AutoComplete (AutoComplete.ShowCompletion False))
+        , onInput StoreVal
         ]
         []
-    , AutoComplete.view (Signal.forwardTo address AutoComplete) model.completions
+    , Html.App.map AutoComplete (AutoComplete.view model.completions)
     ]
-
-
-handleKeyPress : Model -> Int -> Action
-handleKeyPress model code =
-  if code == 13 then Request model.command else NoOp

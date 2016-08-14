@@ -1,21 +1,21 @@
-module AutoComplete where
+module AutoComplete exposing (..)
 
 import Html exposing (Html, ul, li, text, i, b)
 import Html.Attributes exposing (id, class)
 import Html.Events exposing (onClick)
 import String
-import Effects exposing (Effects, Never)
 import Json.Decode as Json exposing ((:=))
-import Http
 import Task
+import Http
 
 
-type Action
-  = StoreCompletions (Maybe (List Completion))
+type Msg
+  = StoreCompletions (List Completion)
+  | FetchFailed Http.Error
   | ArrowPress { x : Int, y : Int }
   | Complete String
   | ShowCompletion Bool
-
+  | NoOp
 
 type alias Completion =
   { command : String
@@ -33,8 +33,8 @@ init : Model
 init =
   Model 0 False [] ""
 
-show : Signal.Address Action -> Int -> Int -> Completion -> Html
-show address selected current completion =
+show : Int -> Int -> Completion -> Html Msg
+show selected current completion =
   let
     completionClass = if selected == current then
                 "selected-completion completion"
@@ -42,7 +42,7 @@ show address selected current completion =
                 "completion"
   in
   li
-    [ Html.Events.onClick address (Complete completion.command)
+    [ Html.Events.onClick (Complete completion.command)
     , class completionClass
     ]
     [ b [class "command"] [text completion.command]
@@ -62,15 +62,15 @@ completionMatch command completion =
   in
     (String.startsWith keyword) completion.command
 
-view : Signal.Address Action -> Model -> Html
-view address model =
+view : Model -> Html Msg
+view model =
   let
     visible = List.filter (completionMatch model.command) model.completions
   in
     if model.visible then
       ul
         [class "completions"]
-        (List.indexedMap (show address model.selection) visible)
+        (List.indexedMap (show model.selection) visible)
     else
       ul [] []
 
@@ -83,7 +83,7 @@ getAt : List a -> Int -> Maybe a
 getAt xs idx = List.head <| List.drop idx xs
 
 
-moveSelection : { x : Int, y : Int } -> Model -> (Model, Effects Action)
+moveSelection : { x : Int, y : Int } -> Model -> (Model, Cmd Msg)
 moveSelection key model =
   let
     visibleCompletions =
@@ -97,27 +97,32 @@ moveSelection key model =
         model.selection
     fx =
       case getAt visibleCompletions model.selection of
-        Just completion -> Effects.task <| Task.succeed <| Complete completion.command
-        Nothing -> Effects.none
+        Just completion ->
+          Cmd.none
+        Nothing -> Cmd.none
   in
     ({ model | selection = newSelection }, fx)
 
-update : Action -> Model -> (Model, Effects Action)
+update : Msg -> Model -> (Model, Cmd Msg)
 update action model =
   case action of
     StoreCompletions newCompletions ->
       let
         newModel = { model |
-                       completions = (Maybe.withDefault backupCompletions newCompletions)
+                       completions = newCompletions
                    }
       in
-        (newModel, Effects.none)
+        (newModel, Cmd.none)
     ArrowPress key ->
       moveSelection key model
     Complete s ->
-      (model, Effects.none)
+      (model, Cmd.none)
     ShowCompletion state ->
-      ({ model | visible = state}, Effects.none)
+      ({ model | visible = state}, Cmd.none)
+    FetchFailed _ ->
+      (model, Cmd.none)
+    NoOp ->
+      (model, Cmd.none)
 
 
 decodeCompletion : Json.Decoder (List Completion)
@@ -127,9 +132,8 @@ decodeCompletion =
     ("info" := Json.string))
 
 
-fetch : String -> Effects Action
+fetch : String -> Cmd Msg
 fetch package =
-  Http.get decodeCompletion ("/completion/?pack=" ++ package)
-    |> Task.toMaybe
-    |> Task.map StoreCompletions
-    |> Effects.task
+  Task.perform FetchFailed StoreCompletions (Http.get decodeCompletion ("/completion/?pack=" ++ package))
+    --  |> Task.toMaybe
+    -- |> Task.map StoreCompletions

@@ -1,17 +1,13 @@
 import Html exposing (Html, Attribute)
-import StartApp
-import Effects exposing (Effects, Never)
-import Task
-import Html exposing (Html, Attribute, text, toElement, div, input, span)
+import Html.App
+import Html exposing (Html, Attribute, text, div, input, span)
 import Html.Attributes exposing (id, class)
+import Html.App as Html
 import Keyboard
-import Time exposing (second, Time)
 
-import AutoComplete
 import Cards
 import Card
 import Input
-
 
 type alias Model =
   { input : Input.Model
@@ -20,71 +16,63 @@ type alias Model =
   , histories : Cards.Model
   }
 
-type Action
-  = Input Input.Action
-  | Cards Cards.Action
-  | Pins Cards.Action
-  | History Cards.Action
+type Msg
+  = Input Input.Msg
+  | Cards Cards.Msg
+  | Pins Cards.Msg
+  | History Cards.Msg
+  | HandleKeypress Int
 
-init : (Model, Effects Action)
+init : (Model, Cmd Msg)
 init =
   let
     (input, fx) = Input.init
   in
-    (Model input Cards.init Cards.init Cards.init, Effects.map Input fx)
+    (Model input Cards.init Cards.init Cards.init, Cmd.map Input fx)
 
 
-update : Action -> Model -> (Model, Effects Action)
+update : Msg -> Model -> (Model, Cmd Msg)
 update action model =
   case action of
+    HandleKeypress keyCode ->
+      if keyCode == 13 then
+        makeRequest model
+      else
+        (model, Cmd.none)
     Input msg ->
-      case msg of
-        Input.Request command ->
-          let
-            newInput = Input.storeCommand "" model.input
-            newHistories = Cards.add (Card.build "" command 0 "" model.histories.nextID) model.histories
-            (cards, fx) = Cards.update (Cards.Get command) model.cards
-          in
-            ({ model |
-                 input = newInput,
-                 cards = cards,
-                 histories = newHistories
-             },
-               Effects.map Cards fx
-            )
-        _ ->
-          let
-            (input, fx) = Input.update msg model.input
-          in
-            ({ model | input = input}, Effects.map Input fx)
+      let
+        (input, fx) = Input.update msg model.input
+      in
+        ({ model | input = input}, Cmd.map Input fx)
     Cards act ->
       case act of
         Cards.Move newCards ->
-          ({ model | pins = Cards.addCards newCards model.pins }, Effects.none)
+          ({ model | pins = Cards.addCards newCards model.pins }, Cmd.none)
         _ ->
           let
             (cards, fx) = Cards.update act model.cards
           in
-            ({ model | cards = cards}, Effects.map Cards fx)
+            ({ model | cards = cards}, Cmd.map Cards fx)
     Pins act ->
       case act of
         Cards.Move newCards ->
-          ({ model | cards = Cards.addCards newCards model.cards }, Effects.none)
+          ({ model | cards = Cards.addCards newCards model.cards }, Cmd.none)
         _ ->
           let
             (cards, fx) = Cards.update act model.pins
           in
-            ({ model | pins = cards}, Effects.map Pins fx)
+            ({ model | pins = cards}, Cmd.map Pins fx)
     History act ->
       let
         (cards, fx) = Cards.update act model.pins
       in
-        ({ model | histories = cards}, Effects.map History fx)
+        ({ model | histories = cards}, Cmd.map History fx)
 
 
 
-view : Signal.Address Action -> Model -> Html
-view address model =
+
+view : Model -> Html Msg
+view model =
   div
     [class "center"]
     [ div
@@ -94,7 +82,7 @@ view address model =
             []
         , div
             [class "contents histories"]
-            [Cards.view (Signal.forwardTo address History) model.histories]
+            [Html.App.map History (Cards.view model.histories)]
         ]
     , div
         [class "right"]
@@ -103,50 +91,30 @@ view address model =
             []
         , div
             [class "contents pins"]
-            [Cards.view (Signal.forwardTo address Pins) model.pins]
+            [Html.App.map Pins (Cards.view model.pins)]
         ]
     , div
         [id "app"]
-        [ Input.view (Signal.forwardTo address Input) model.input
-        , Cards.view (Signal.forwardTo address Cards) model.cards
+        [ Html.App.map Input (Input.view model.input)
+        , Html.App.map Cards (Cards.view model.cards)
         ]
     ]
 
-arrowPressAutoCompleteInput : { x : Int, y : Int } -> Action
-arrowPressAutoCompleteInput =
-  Input << Input.AutoComplete << AutoComplete.ArrowPress
+makeRequest : Model -> (Model, Cmd Msg)
+makeRequest model =
+  let
+    newInput = Input.storeCommand "" model.input
+    newHistories = Cards.add (Card.build "" model.input.command 0) model.histories
+    (cards, fx) = Cards.update (Cards.Get model.input.command) model.cards
+  in
+    ({ model |
+         input = newInput,
+         cards = cards,
+         histories = newHistories
+     }
+    , Cmd.map Cards fx)
 
-
-keyboardInputs : Signal Action
-keyboardInputs =
-  Signal.map arrowPressAutoCompleteInput Keyboard.arrows
-
-
-updateCard : Time -> Action
-updateCard =
-  Cards << Cards.Card << Card.Tick
-
-
-updatePin : Time -> Action
-updatePin =
-  Pins << Cards.Card << Card.Tick
-
-
-clock : Signal Action
-clock =
-  Signal.merge
-    (Signal.map updateCard (Time.every second))
-    (Signal.map updatePin (Time.every second))
-
-app : StartApp.App Model
-app =
-  StartApp.start { init = init, view = view, update = update, inputs = [keyboardInputs, clock] }
-
-
-port tasks : Signal (Task.Task Never ())
-port tasks =
-  app.tasks
-
-main : Signal Html
+main : Program Never
 main =
-  app.html
+  Html.program
+    { init = init, update = update, view = view, subscriptions = \_ -> Keyboard.presses HandleKeypress }
