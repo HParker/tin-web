@@ -4,6 +4,8 @@ import Html exposing (Html, Attribute, text, div, input, span)
 import Html.Attributes exposing (id, class)
 import Html.App as Html
 import Keyboard
+import WebSocket
+import Json.Decode as Json
 
 import Cards
 import Card
@@ -22,6 +24,7 @@ type Msg
   | Pins Cards.Msg
   | History Cards.Msg
   | HandleKeypress Int
+  | Push String
 
 init : (Model, Cmd Msg)
 init =
@@ -39,6 +42,24 @@ update action model =
         makeRequest model
       else
         (model, Cmd.none)
+    Push cardJson ->
+      let
+        cardsModel = model.cards
+        newCardResult = (Json.decodeString Card.decode cardJson)
+        newCards = case newCardResult of
+          Ok newCard ->
+            { cardsModel |
+               cards = newCard cardsModel.nextID :: cardsModel.cards
+            , nextID = cardsModel.nextID + 1
+            }
+          Err _ ->
+            model.cards
+      in
+        ( {model |
+            cards = newCards
+          }
+        , Cmd.none
+        )
     Input msg ->
       let
         (input, fx) = Input.update msg model.input
@@ -117,4 +138,11 @@ makeRequest model =
 main : Program Never
 main =
   Html.program
-    { init = init, update = update, view = view, subscriptions = \_ -> Keyboard.presses HandleKeypress }
+    { init = init
+    , update = update
+    , view = view
+    , subscriptions = \_ -> Sub.batch
+                      [Keyboard.presses HandleKeypress
+                      , WebSocket.listen "ws://localhost:8020/my-channel" Push
+                      ]
+    }
