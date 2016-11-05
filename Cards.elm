@@ -21,8 +21,6 @@ type Msg
   | Add (Card.ID -> Card.Model)
   | AddFailed Http.Error
   | Card Card.Msg
-  | Move (List Card.Model)
-  | NoMove (List Card.Model)
 
 
 init : Model
@@ -74,31 +72,15 @@ update action model =
               List.filter (\c -> c.id /= cardID) model.cards
           in
             ({model | cards = newCards}, Cmd.none)
-        Card.Move cardID ->
-          let
-            newCards =
-              List.filter (\c -> c.id /= cardID) model.cards
-            movingCards =
-              List.filter (\c -> c.id == cardID) model.cards
-          in
-            ({model | cards = newCards}, moveCard movingCards)
         _ ->
           let
             (newCards, fxs) = List.unzip (List.map (Card.update act) model.cards)
           in
             ({model | cards = newCards}, (Cmd.map Card (Cmd.batch fxs)))
-    NoMove _ ->
-      (model, Cmd.none)
-    Move _ ->
-      (model, Cmd.none)
     AddFailed _ ->
       (model, Cmd.none)
     NoOp ->
       (model, Cmd.none)
-
-moveCard : (List Card.Model) -> Cmd Msg
-moveCard cards =
-  Task.perform NoMove Move (Task.succeed cards)
 
 getCard : String -> Cmd Msg
 getCard command =

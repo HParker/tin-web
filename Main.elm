@@ -1,11 +1,13 @@
 import Html exposing (Html, Attribute)
 import Html.App
-import Html exposing (Html, Attribute, text, div, input, span)
-import Html.Attributes exposing (id, class)
+import Html exposing (Html, Attribute, text, div, input, span, h1, img)
+import Html.Attributes exposing (id, class, src)
 import Html.App as Html
 import Keyboard
 import WebSocket
-import Json.Decode as Json
+import Json.Decode as Json exposing ((:=))
+import Http
+import Task
 
 import Cards
 import Card
@@ -14,24 +16,26 @@ import Input
 type alias Model =
   { input : Input.Model
   , cards : Cards.Model
-  , pins : Cards.Model
-  , histories : Cards.Model
+  , image : String
   }
 
 type Msg
   = Input Input.Msg
   | Cards Cards.Msg
-  | Pins Cards.Msg
-  | History Cards.Msg
   | HandleKeypress Int
   | Push String
+  | LoggedIn String
+  | NotLoggedIn Http.Error
 
-init : (Model, Cmd Msg)
-init =
+type alias Flags =
+    { image_url: String }
+
+init : Flags -> (Model, Cmd Msg)
+init flags =
   let
     (input, fx) = Input.init
   in
-    (Model input Cards.init Cards.init Cards.init, Cmd.map Input fx)
+    (Model input Cards.init flags.image_url, Cmd.map Input fx)
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -66,30 +70,14 @@ update action model =
       in
         ({ model | input = input}, Cmd.map Input fx)
     Cards act ->
-      case act of
-        Cards.Move newCards ->
-          ({ model | pins = Cards.addCards newCards model.pins }, Cmd.none)
-        _ ->
-          let
-            (cards, fx) = Cards.update act model.cards
-          in
-            ({ model | cards = cards}, Cmd.map Cards fx)
-    Pins act ->
-      case act of
-        Cards.Move newCards ->
-          ({ model | cards = Cards.addCards newCards model.cards }, Cmd.none)
-        _ ->
-          let
-            (cards, fx) = Cards.update act model.pins
-          in
-            ({ model | pins = cards}, Cmd.map Pins fx)
-    History act ->
       let
-        (cards, fx) = Cards.update act model.pins
+        (cards, fx) = Cards.update act model.cards
       in
-        ({ model | histories = cards}, Cmd.map History fx)
-
-
+        ({ model | cards = cards}, Cmd.map Cards fx)
+    LoggedIn msg ->
+        (model, Cmd.none)
+    NotLoggedIn msg ->
+        (model, Cmd.none)
 
 
 view : Model -> Html Msg
@@ -97,23 +85,8 @@ view model =
   div
     [class "center"]
     [ div
-        [class "left"]
-        [ span
-            [ class "header-icon icon mega-octicon octicon-book" ]
-            []
-        , div
-            [class "contents histories"]
-            [Html.App.map History (Cards.view model.histories)]
-        ]
-    , div
-        [class "right"]
-        [ span
-            [ class "header-icon icon mega-octicon octicon-pin" ]
-            []
-        , div
-            [class "contents pins"]
-            [Html.App.map Pins (Cards.view model.pins)]
-        ]
+      [class "logo"]
+      [viewLogo model]
     , div
         [id "app"]
         [ Html.App.map Input (Input.view model.input)
@@ -121,23 +94,28 @@ view model =
         ]
     ]
 
+viewLogo : Model -> Html Msg
+viewLogo model =
+    if model.image == "" then
+      h1 [] [text "Tin"]
+    else
+      img [src model.image] []
+
 makeRequest : Model -> (Model, Cmd Msg)
 makeRequest model =
   let
     newInput = Input.storeCommand "" model.input
-    newHistories = Cards.add (Card.build "" model.input.command 0) model.histories
     (cards, fx) = Cards.update (Cards.Get model.input.command) model.cards
   in
     ({ model |
-         input = newInput,
-         cards = cards,
-         histories = newHistories
+           input = newInput
+         , cards = cards
+         , image = model.image
      }
     , Cmd.map Cards fx)
 
-main : Program Never
 main =
-  Html.program
+  Html.programWithFlags
     { init = init
     , update = update
     , view = view
@@ -146,3 +124,14 @@ main =
                       , WebSocket.listen "ws://localhost:8020/my-channel" Push
                       ]
     }
+
+
+userDecode : Json.Decoder String
+userDecode =
+  ("image_url" := Json.string)
+
+
+getImage : Cmd Msg
+getImage =
+  Http.get userDecode ("api/me")
+    |> Task.perform NotLoggedIn LoggedIn

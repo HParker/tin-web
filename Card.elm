@@ -20,7 +20,6 @@ type alias ID = Int
 type Msg
   = NoOp
   | Collapse ID
-  | Move ID
   | Delete ID
 
 build : String -> String -> ID -> Model
@@ -47,8 +46,6 @@ update action model =
           ({ model | collapsed = toggle }, Cmd.none)
         else
           (model, Cmd.none)
-    Move id ->
-      (model, Cmd.none)
     Delete _ ->
       (model, Cmd.none)
     NoOp ->
@@ -80,11 +77,6 @@ view card =
             , Html.Events.onClick (Delete card.id)
             ]
             []
-        , span
-           [ class "card-icon icon octicon octicon-pin"
-           , Html.Events.onClick (Move card.id)
-           ]
-           []
         , span
            [ class collapseIcon
            , Html.Events.onClick (Collapse card.id)

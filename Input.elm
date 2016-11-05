@@ -54,20 +54,14 @@ update action model =
     NoOp -> (model, Cmd.none)
 
 
-sendCard : String -> Cmd Msg
-sendCard command =
-  Cmd.none
-
-
 view : Model -> Html Msg
 view model =
   div [ id "main-interface" ]
     [ input
-        [ placeholder "Hello Friend"
-        , value model.command
+        [ value model.command
         , id "interface"
         , onFocus (AutoComplete (AutoComplete.ShowCompletion True))
-        , onBlur (AutoComplete (AutoComplete.ShowCompletion False))
+        , onBlur (AutoComplete (AutoComplete.ShowCompletion True))
         , onInput StoreVal
         ]
         []
